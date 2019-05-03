@@ -6,6 +6,7 @@ using MongoDB.Bson;
 using MongoDB.Driver;
 using System;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace Grand.Services.Common
 {
@@ -41,7 +42,7 @@ namespace Grand.Services.Common
         }
 
         #endregion
-        
+
         #region Methods
 
         /// <summary>
@@ -52,7 +53,7 @@ namespace Grand.Services.Common
         /// <param name="key">Key</param>
         /// <param name="value">Value</param>
         /// <param name="storeId">Store identifier; pass 0 if this attribute will be available for all stores</param>
-        public virtual void SaveAttribute<TPropType>(BaseEntity entity, string key, TPropType value, string storeId = "")
+        public virtual async Task SaveAttribute<TPropType>(BaseEntity entity, string key, TPropType value, string storeId = "")
         {
             if (entity == null)
                 throw new ArgumentNullException("entity");
@@ -78,8 +79,11 @@ namespace Grand.Services.Common
                 {
                     //delete
                     var builder = Builders<GenericAttributeBaseEntity>.Update;
-                    var updatefilter = builder.PullFilter(x => x.GenericAttributes, y => y.Key == prop.Key &&  y.StoreId == storeId);
-                    var result = collection.UpdateManyAsync(new BsonDocument("_id", entity.Id), updatefilter).Result;
+                    var updatefilter = builder.PullFilter(x => x.GenericAttributes, y => y.Key == prop.Key && y.StoreId == storeId);
+                    await collection.UpdateManyAsync(new BsonDocument("_id", entity.Id), updatefilter);
+                    var entityProp = entity.GenericAttributes.FirstOrDefault(x => x.Key == prop.Key && x.StoreId == storeId);
+                    if (entityProp != null)
+                        entity.GenericAttributes.Remove(entityProp);
                 }
                 else
                 {
@@ -91,34 +95,40 @@ namespace Grand.Services.Common
                     var update = Builders<GenericAttributeBaseEntity>.Update
                         .Set(x => x.GenericAttributes.ElementAt(-1).Value, prop.Value);
 
-                    var result = collection.UpdateManyAsync(filter, update).Result;
+                    await collection.UpdateManyAsync(filter, update);
+
+                    var entityProp = entity.GenericAttributes.FirstOrDefault(x => x.Key == prop.Key && x.StoreId == storeId);
+                    if (entityProp != null)
+                        entityProp.Value = valueStr;
+
                 }
             }
             else
             {
                 if (!string.IsNullOrWhiteSpace(valueStr))
                 {
-                    prop = new GenericAttribute
-                    {
+                    prop = new GenericAttribute {
                         Key = key,
                         Value = valueStr,
                         StoreId = storeId,
                     };
                     var updatebuilder = Builders<GenericAttributeBaseEntity>.Update;
                     var update = updatebuilder.AddToSet(p => p.GenericAttributes, prop);
-                    var result = collection.UpdateOneAsync(new BsonDocument("_id", entity.Id), update).Result;
+                    await collection.UpdateOneAsync(new BsonDocument("_id", entity.Id), update);
+                    entity.GenericAttributes.Add(prop);
                 }
             }
         }
 
-        public virtual TPropType GetAttributesForEntity<TPropType>(BaseEntity entity, string key, string storeId = "")
+        public virtual async Task<TPropType> GetAttributesForEntity<TPropType>(BaseEntity entity, string key, string storeId = "")
         {
             if (entity == null)
                 throw new ArgumentNullException("entity");
 
-            var collection = _genericattributeBaseEntitRepository.Database.GetCollection<GenericAttributeBaseEntity>(entity.GetType().Name).Find(new BsonDocument("_id", entity.Id)).FirstOrDefault();
+            var collection = await _genericattributeBaseEntitRepository.Database.GetCollection<GenericAttributeBaseEntity>(entity.GetType().Name)
+                .FindAsync(new BsonDocument("_id", entity.Id));
 
-            var props = collection.GenericAttributes;
+            var props = collection.FirstOrDefault().GenericAttributes;
             if (props == null)
                 return default(TPropType);
             props = props.Where(x => x.StoreId == storeId).ToList();
@@ -126,7 +136,7 @@ namespace Grand.Services.Common
                 return default(TPropType);
 
             var prop = props.FirstOrDefault(ga =>
-                ga.Key.Equals(key, StringComparison.OrdinalIgnoreCase)); 
+                ga.Key.Equals(key, StringComparison.OrdinalIgnoreCase));
 
             if (prop == null || string.IsNullOrEmpty(prop.Value))
                 return default(TPropType);

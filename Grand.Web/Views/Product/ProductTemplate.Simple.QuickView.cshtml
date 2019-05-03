@@ -17,6 +17,10 @@
                 <form asp-route="Product" asp-route-sename="@Model.SeName" method="post" id="product-details-form">
                     <div itemscope itemtype="http://schema.org/Product" data-productid="@Model.Id">
                         <div class="item-container col d-md-inline-flex d-md-flex px-0">
+                            @if (!string.IsNullOrEmpty(Model.Flag))
+                            {
+                                <span class="new-product-label bg-info text-white">@Model.Flag</span>
+                            }
                             @await Component.InvokeAsync("Widget", new { widgetZone = "productdetails_before_pictures", additionalData = Model.Id })
                             <!--product pictures-->
                             <partial name="_ProductDetailsPictures" model="Model" />
@@ -117,30 +121,30 @@
                         <div class="col-12 mt-2 mb-2 px-0">
                             <ul class="nav nav-tabs product-tabs" id="myTab" role="tablist">
                                 <li class="nav-item">
-                                    <a class="nav-link active" id="desc-tab" data-toggle="tab" href="#desc" role="tab" aria-controls="desc" aria-selected="true"><span class="d-none d-md-block">@T("Products.Description")</span><span class="material-icons d-md-none">description</span></a>
+                                    <a class="nav-link active" id="desc-tab" data-toggle="tab" href="#desc" role="tab" aria-controls="desc" aria-selected="true"><span class="d-none d-md-block">@T("Products.Description")</span><span class="mdi mdi-clipboard-text-outline d-md-none"></span></a>
                                 </li>
                                 @if (Model.ProductTags.Any())
                                 {
                                     <li class="nav-item">
-                                        <a class="nav-link" id="tags-tab" data-toggle="tab" href="#tags" role="tab" aria-controls="tags" aria-selected="false"><span class="d-none d-md-block">@T("Products.Tags")</span><span class="material-icons d-md-none">turned_in_not</span></a>
+                                        <a class="nav-link" id="tags-tab" data-toggle="tab" href="#tags" role="tab" aria-controls="tags" aria-selected="false"><span class="d-none d-md-block">@T("Products.Tags")</span><span class="mdi mdi-tag-multiple d-md-none"></span></a>
                                     </li>
                                 }
                                 @if (Model.ProductSpecifications.Any())
                                 {
                                     <li class="nav-item">
-                                        <a class="nav-link" id="spec-tab" data-toggle="tab" href="#spec" role="tab" aria-controls="spec" aria-selected="false"><span class="d-none d-md-block">@T("Products.Specs")</span><span class="material-icons d-md-none">build</span></a>
+                                        <a class="nav-link" id="spec-tab" data-toggle="tab" href="#spec" role="tab" aria-controls="spec" aria-selected="false"><span class="d-none d-md-block">@T("Products.Specs")</span><span class="mdi mdi-file-document-edit-outline d-md-none"></span></a>
                                     </li>
                                 }
                                 @if (Model.ProductReviewOverview.AllowCustomerReviews)
                                 {
                                     <li class="nav-item">
-                                        <a class="nav-link" id="review-tab" data-toggle="tab" href="#review" role="tab" aria-controls="spec" aria-selected="false"><span class="d-none d-md-block">@T("Products.Reviews") (@Model.ProductReviewOverview.TotalReviews)</span><span class="material-icons d-md-none">rate_review</span></a>
+                                        <a class="nav-link" id="review-tab" data-toggle="tab" href="#review" role="tab" aria-controls="spec" aria-selected="false"><span class="d-none d-md-block">@T("Products.Reviews") (@Model.ProductReviewOverview.TotalReviews)</span><span class="mdi mdi-account-star d-md-none"></span></a>
                                     </li>
                                 }
                                 @if (Model.AskQuestionOnProduct)
                                 {
                                     <li class="nav-item">
-                                        <a class="nav-link" id="contact-tab" data-toggle="tab" href="#contact" role="tab" aria-controls="contact" aria-selected="false"><span class="d-none d-md-block">@T("Products.ContactUs")</span><i class="material-icons d-md-none">message</i></a>
+                                        <a class="nav-link" id="contact-tab" data-toggle="tab" href="#contact" role="tab" aria-controls="contact" aria-selected="false"><span class="d-none d-md-block">@T("Products.ContactUs")</span><span class="mdi mdi-message-draw d-md-none"></span></a>
                                     </li>
                                 }
                             </ul>
@@ -203,30 +207,6 @@
                 }, 300, 'linear');
             });
         }
-
-        $(".product-quickview .card.gen").each(function () {
-            if ($(this).find(".old-price").text().length > 0) {
-                var actual_p = $(this).find(".actual-price").text().replace(",", "").replace(/^\D+/g, '');
-                var old_p = $(this).find(".old-price").text().replace(",", "").replace(/^\D+/g, '');
-                var promo = Math.abs(Math.round((1 - actual_p / old_p) * 100));
-                if (isNaN(promo)) {
-                    $(this).parent().parent().find(".change-percent").remove();
-                } else {
-                    if (parseInt(promo) <= 0) {
-                        $(this).find(".new-product-label").addClass("no-promo");
-                    }
-                    else {
-                        var promo = "-" + promo + "%";
-                        $(this).parent().find(".change-percent").text(promo).css("opacity", "1");
-                        $(this).find(".new-product-label").addClass("with-promo");
-                    }
-                }
-            }
-            else {
-                $(this).find(".change-percent").remove();
-                $(this).find(".new-product-label").addClass("no-promo");
-            }
-        });
     });
 </script>
 <resources asp-type="ScriptFooter" />

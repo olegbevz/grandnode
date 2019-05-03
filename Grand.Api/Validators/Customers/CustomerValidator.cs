@@ -6,7 +6,6 @@ using Grand.Services.Customers;
 using Grand.Services.Directory;
 using Grand.Services.Localization;
 using Grand.Services.Stores;
-using System.Linq;
 
 namespace Grand.Api.Validators.Customers
 {
@@ -16,9 +15,9 @@ namespace Grand.Api.Validators.Customers
             ICustomerService customerService, IStoreService storeService, CustomerSettings customerSettings)
         {
 
-            RuleFor(x => x).Must((x, context) =>
+            RuleFor(x => x).MustAsync(async (x, context) =>
             {
-                var customer = customerService.GetCustomerByEmail(x.Email);
+                var customer = await customerService.GetCustomerByEmail(x.Email);
                 if (customer != null && customer.Id != x.Id)
                 {
                     return false;
@@ -26,9 +25,9 @@ namespace Grand.Api.Validators.Customers
                 return true;
             }).WithMessage(localizationService.GetResource("Api.Customers.Customer.Fields.Email.Registered"));
 
-            RuleFor(x => x).Must((x, context) =>
+            RuleFor(x => x).MustAsync(async (x, context) =>
             {
-                var username = customerService.GetCustomerByEmail(x.Username);
+                var username = await customerService.GetCustomerByUsername(x.Username);
                 if (username != null && username.Id != x.Id && customerSettings.UsernamesEnabled)
                 {
                     return false;
@@ -36,9 +35,9 @@ namespace Grand.Api.Validators.Customers
                 return true;
             }).WithMessage(localizationService.GetResource("Api.Customers.Customer.Fields.Username.Registered"));
 
-            RuleFor(x => x).Must((x, context) =>
+            RuleFor(x => x).MustAsync(async (x, context) =>
             {
-                var customer = customerService.GetCustomerByGuid(x.CustomerGuid);
+                var customer = await customerService.GetCustomerByGuid(x.CustomerGuid);
                 if (customer != null && customer.Id != x.Id)
                 {
                     return false;
@@ -46,9 +45,9 @@ namespace Grand.Api.Validators.Customers
                 return true;
             }).WithMessage(localizationService.GetResource("Api.Customers.Customer.Fields.Guid.Exists"));
 
-            RuleFor(x => x).Must((x, context) =>
+            RuleFor(x => x).MustAsync(async (x, context) =>
             {
-                var store = storeService.GetStoreById(x.StoreId);
+                var store = await storeService.GetStoreById(x.StoreId);
                 if (store != null)
                 {
                     return true;
@@ -69,21 +68,22 @@ namespace Grand.Api.Validators.Customers
                 customerSettings.StateProvinceRequired)
             {
 
-                RuleFor(x => x).Must((x, context) =>
+                RuleFor(x => x.StateProvinceId).MustAsync(async (x, y, context) =>
                 {
-                    //does selected country have states?
-                    var hasStates = stateProvinceService.GetStateProvincesByCountryId(x.CountryId).Any();
+                    //does selected country has states?
+                    var countryId = !string.IsNullOrEmpty(x.CountryId) ? x.CountryId : "";
+                    var hasStates = (await stateProvinceService.GetStateProvincesByCountryId(countryId)).Count > 0;
                     if (hasStates)
                     {
-                        //if yes, then ensure that a state is selected
-                        if (string.IsNullOrEmpty(x.StateProvinceId))
-                            return true;
+                        //if yes, then ensure that state is selected
+                        if (string.IsNullOrEmpty(y))
+                        {
+                            return false;
+                        }
                     }
-                    return false;
-                }).WithMessage(localizationService.GetResource("Api.Customers.Customer.Fields.StateProvince.Required"));
-
+                    return true;
+                }).WithMessage(localizationService.GetResource("pi.Customers.Customer.Fields.StateProvince.Required"));
             }
-
             if (customerSettings.CompanyRequired && customerSettings.CompanyEnabled)
                 RuleFor(x => x.Company).NotEmpty().WithMessage(localizationService.GetResource("Api.Customers.Customer.Customers.Customers.Fields.Company.Required"));
             if (customerSettings.StreetAddressRequired && customerSettings.StreetAddressEnabled)

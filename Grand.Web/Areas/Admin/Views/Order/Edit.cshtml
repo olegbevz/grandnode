@@ -4,12 +4,12 @@
     //page title
     ViewBag.Title = T("Admin.Orders.EditOrderDetails").Text;
 }
-<form asp-controller="Order" asp-action="Edit" method="post" id = "order-form">
+<form asp-controller="Order" asp-action="Edit" method="post" id="order-form">
     <antiforgery-token />
     <div class="row">
         <div class="col-md-12">
-            <div class="portlet light form-fit">
-                <div class="portlet-title">
+            <div class="x_panel light form-fit">
+                <div class="x_title">
                     <div class="caption">
                         <i class="icon-basket"></i>
                         @T("Admin.Orders.EditOrderDetails") - @Model.OrderNumber
@@ -37,7 +37,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="portlet-body form">
+                <div class="x_content form">
                     <div id="order-edit" style="display:none">
                         <ul>
                             <li tab-index="0">
@@ -60,21 +60,21 @@
                             }
                         </ul>
                         <div>
-                           <partial name="_OrderDetails.Info" model="Model" />
+                            <partial name="_OrderDetails.Info" model="Model" />
                         </div>
                         <div>
-                           <partial name="_OrderDetails.Billing" model="Model" />
+                            <partial name="_OrderDetails.Billing" model="Model" />
                         </div>
                         <div>
-                           <partial name="_OrderDetails.Shipping" model="Model" />
+                            <partial name="_OrderDetails.Shipping" model="Model" />
                         </div>
                         <div>
-                           <partial name="_OrderDetails.Products" model="Model" />
+                            <partial name="_OrderDetails.Products" model="Model" />
                         </div>
                         @if (!Model.IsLoggedInAsVendor)
                         {
                             <div>
-                               <partial name="_OrderDetails.Notes" model="Model" />
+                                <partial name="_OrderDetails.Notes" model="Model" />
                             </div>
                         }
                     </div>
@@ -100,10 +100,10 @@
     @{
         //custom tabs
         var eventMessage = new AdminTabStripCreated(this.Html, "order-edit");
-        eventPublisher.Publish(eventMessage);
+        await eventPublisher.Publish(eventMessage);
         foreach (var eventBlock in eventMessage.BlocksToRender)
         {
-            @eventBlock
+            <kendo-tab-append tab-strip-name="order-edit" tab-name="@eventBlock.tabname" tab-content="@eventBlock.content" />
         }
     }
 

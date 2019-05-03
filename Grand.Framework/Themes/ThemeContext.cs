@@ -48,7 +48,7 @@ namespace Grand.Framework.Themes
                 if (_storeInformationSettings.AllowCustomerToSelectTheme)
                 {
                     if (_workContext.CurrentCustomer != null)
-                        theme = _workContext.CurrentCustomer.GetAttribute<string>(SystemCustomerAttributeNames.WorkingThemeName, _storeContext.CurrentStore.Id);
+                        theme = _workContext.CurrentCustomer.GetAttributeFromEntity<string>(SystemCustomerAttributeNames.WorkingThemeName, _storeContext.CurrentStore.Id);
                 }
 
                 //default store theme
@@ -78,7 +78,7 @@ namespace Grand.Framework.Themes
                 if (_workContext.CurrentCustomer == null)
                     return;
 
-                _genericAttributeService.SaveAttribute(_workContext.CurrentCustomer, SystemCustomerAttributeNames.WorkingThemeName, value, _storeContext.CurrentStore.Id);
+                _genericAttributeService.SaveAttribute(_workContext.CurrentCustomer, SystemCustomerAttributeNames.WorkingThemeName, value, _storeContext.CurrentStore.Id).GetAwaiter().GetResult();
 
                 //clear cache
                 this._themeIsCached = false;

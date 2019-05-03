@@ -9,9 +9,7 @@
         <span>@Model.Category.Name</span>
         @if (Model.Category.SubCategories.Count() > 0)
         {
-            <span class="material-icons mat arrow-down">
-                keyboard_arrow_down
-            </span>
+            <span class="mdi mdi-chevron-down arrow-down"></span>
         }
     </a>
 
@@ -33,10 +31,8 @@
             {
                 <ul class="dropdown-menu @levelClass" aria-labelledby="@Model.Category.Id-menu">
                     <li class="nav-item cat-back d-lg-none d-inline-flex">
-                        <a class="nav-link justify-content-start align-items-center" onclick="$(this).parent().removeClass('show');">
-                            <span class="material-icons mat">
-                                keyboard_arrow_left
-                            </span>
+                        <a class="nav-link justify-content-start align-items-center">
+                            <span class="mdi mdi-arrow-left"></span>
                             <span>@T("Mobile.Categories.Back")</span>
                         </a>
                     </li>
@@ -64,10 +60,8 @@
             <div class="sublist-toggle"></div>
             <ul class="dropdown-menu sublist @levelClass">
                 <li class="nav-item cat-back d-lg-none d-inline-flex">
-                    <a class="nav-link justify-content-start align-items-center" onclick="$(this).parent().removeClass('show');">
-                        <span class="material-icons mat">
-                            keyboard_arrow_left
-                        </span>
+                    <a class="nav-link justify-content-start align-items-center">
+                        <span class="mdi mdi-arrow-left"></span>
                         <span>@T("Mobile.Categories.Back")</span>
                     </a>
                 </li>

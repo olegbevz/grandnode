@@ -1,4 +1,5 @@
 ﻿@model AffiliateModel
+@inject IEventPublisher eventPublisher
 <div asp-validation-summary="All"></div>
 <input asp-for="Id" type="hidden" />
 <script>
@@ -29,12 +30,12 @@
         }
     </ul>
     <div>
-       <partial name="_CreateOrUpdate.TabInfo" model="Model" />
+        <partial name="_CreateOrUpdate.TabInfo" model="Model" />
     </div>
     @if (!String.IsNullOrEmpty(Model.Id))
     {
         <div>
-           <partial name="_CreateOrUpdate.TabCustomers" model="Model" />
+            <partial name="_CreateOrUpdate.TabCustomers" model="Model" />
         </div>
         <div>
             @await Component.InvokeAsync("Affiliate", new { affiliateId = Model.Id })
@@ -44,10 +45,10 @@
 @{
     //custom tabs
     var eventMessage = new AdminTabStripCreated(this.Html, "affiliate-edit");
-    EngineContext.Current.Resolve<IEventPublisher>().Publish(eventMessage);
+    await eventPublisher.Publish(eventMessage);
     foreach (var eventBlock in eventMessage.BlocksToRender)
     {
-        @eventBlock
+        <kendo-tab-append tab-strip-name="affiliate-edit" tab-name="@eventBlock.tabname" tab-content="@eventBlock.content" />
     }
 }
 @*save selected tab index*@

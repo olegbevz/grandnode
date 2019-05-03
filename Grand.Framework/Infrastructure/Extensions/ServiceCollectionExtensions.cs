@@ -68,7 +68,7 @@ namespace Grand.Framework.Infrastructure.Extensions
             if (DataSettingsHelper.DatabaseIsInstalled())
             {
                 //log application start
-                var logger = EngineContext.Current.Resolve<ILogger>();
+                var logger = serviceProvider.GetRequiredService<ILogger>();
                 logger.Information("Application started", null, null);
             }
 
@@ -288,6 +288,9 @@ namespace Grand.Framework.Infrastructure.Extensions
             //add fluent validation
             mvcBuilder.AddFluentValidation(configuration => configuration.ValidatorFactoryType = typeof(GrandValidatorFactory));
 
+            //register controllers as services, it'll allow to override them
+            mvcBuilder.AddControllersAsServices();
+
             return mvcBuilder;
         }
 
@@ -313,7 +316,7 @@ namespace Grand.Framework.Infrastructure.Extensions
                 //determine who can access the MiniProfiler results
                 options.ResultsAuthorize = request =>
                     !EngineContext.Current.Resolve<StoreInformationSettings>().DisplayMiniProfilerInPublicStore ||
-                    EngineContext.Current.Resolve<IPermissionService>().Authorize(StandardPermissionProvider.AccessAdminPanel);
+                    EngineContext.Current.Resolve<IPermissionService>().Authorize(StandardPermissionProvider.AccessAdminPanel).Result;
 
             });
         }
@@ -338,9 +341,15 @@ namespace Grand.Framework.Infrastructure.Extensions
                 services.AddScoped(item.GetType(), (x) =>
                 {
                     var type = item.GetType();
+                    var storeId = string.Empty;
                     var settingService = x.GetService<ISettingService>();
-                    var currentStoreId = x.GetService<IStoreContext>().CurrentStore.Id;
-                    return settingService.LoadSetting(type, currentStoreId);
+                    var storeContext = x.GetService<IStoreContext>();
+                    if (storeContext.CurrentStore == null)
+                        storeId = ""; //storeContext.SetCurrentStore().Result.Id;
+                    else
+                        storeId = storeContext.CurrentStore.Id;
+
+                    return settingService.LoadSetting(type, storeId);
                 });
             }
         }

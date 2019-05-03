@@ -64,10 +64,10 @@
 @{
     //custom tabs
     var eventMessage = new AdminTabStripCreated(this.Html, "manufacturer-edit");
-    eventPublisher.Publish(eventMessage);
+    await eventPublisher.Publish(eventMessage);
     foreach (var eventBlock in eventMessage.BlocksToRender)
     {
-        @eventBlock
+        <kendo-tab-append tab-strip-name="manufacturer-edit" tab-name="@eventBlock.tabname" tab-content="@eventBlock.content" />
     }
 }
 @*save selected tab index*@

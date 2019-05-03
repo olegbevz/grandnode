@@ -17,9 +17,9 @@ namespace Grand.Web.ViewComponents
 
         public async Task<IViewComponentResult> InvokeAsync(string systemKeyword)
         {
-            if (String.IsNullOrWhiteSpace(systemKeyword))
+            if (string.IsNullOrWhiteSpace(systemKeyword))
                 return Content("");
-            var model = await Task.Run(() => _pollViewModelService.PreparePollBySystemName(systemKeyword));
+            var model = await _pollViewModelService.PreparePollBySystemName(systemKeyword);
             if (model == null)
                 return Content("");
 

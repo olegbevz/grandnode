@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Hosting;
 using System;
 using System.IO;
 using System.Net;
+using System.Threading.Tasks;
 
 namespace Grand.Services.Media
 {
@@ -201,23 +202,23 @@ namespace Grand.Services.Media
                 };
                 EnsureValidResponse(_s3Client.PutObjectAsync(putObjectRequest).Result, HttpStatusCode.OK);
             }
-            _s3Client.MakeObjectPublicAsync(_bucketName, thumbFileName, true);
+            _s3Client.MakeObjectPublicAsync(_bucketName, thumbFileName, true).GetAwaiter().GetResult();
         }
 
         /// <summary>
         /// Clears pictures stored on Amazon S3, it won't affect Pictures stored in database
         /// </summary>
-        public override void ClearThumbs()
+        public override async Task ClearThumbs()
         {
             var listObjectsRequest = new ListObjectsV2Request()
             {
                 BucketName = _bucketName
             };
-            var listObjectsResponse = _s3Client.ListObjectsV2Async(listObjectsRequest).Result;
+            var listObjectsResponse = await _s3Client.ListObjectsV2Async(listObjectsRequest);
 
             foreach (var s3Object in listObjectsResponse.S3Objects)
             {
-                EnsureValidResponse(_s3Client.DeleteObjectAsync(_bucketName, s3Object.Key).Result, HttpStatusCode.NoContent);
+                EnsureValidResponse(await _s3Client.DeleteObjectAsync(_bucketName, s3Object.Key), HttpStatusCode.NoContent);
             }
         }
 

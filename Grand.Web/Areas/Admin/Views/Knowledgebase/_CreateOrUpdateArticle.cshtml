@@ -60,10 +60,10 @@
 @{
     //custom tabs
     var eventMessage = new AdminTabStripCreated(this.Html, "knowledgebasearticle-edit");
-    eventPublisher.Publish(eventMessage);
+    await eventPublisher.Publish(eventMessage);
     foreach (var eventBlock in eventMessage.BlocksToRender)
     {
-        @eventBlock
+        <kendo-tab-append tab-strip-name="knowledgebasearticle-edit" tab-name="@eventBlock.tabname" tab-content="@eventBlock.content" />
     }
 }
 

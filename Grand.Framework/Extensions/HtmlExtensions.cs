@@ -36,7 +36,7 @@ namespace Grand.Framework
             if (ignoreIfSeveralStores)
             {
                 var storeService = EngineContext.Current.Resolve<IStoreService>();
-                if (storeService.GetAllStores().Count >= 2)
+                if (storeService.GetAllStores().GetAwaiter().GetResult().Count >= 2)
                 {
                     localizationSupported = false;
                 }
@@ -52,10 +52,11 @@ namespace Grand.Framework
                 tabStrip.AppendLine("Standard");
                 tabStrip.AppendLine("</li>");
 
+                var languageService = EngineContext.Current.Resolve<ILanguageService>();
                 foreach (var locale in helper.ViewData.Model.Locales)
                 {
                     //languages
-                    var language = EngineContext.Current.Resolve<ILanguageService>().GetLanguageById(locale.LanguageId);
+                    var language = languageService.GetLanguageById(locale.LanguageId).GetAwaiter().GetResult();
 
                     tabStrip.AppendLine("<li>");
                     var urlHelper = new UrlHelper(helper.ViewContext);
@@ -213,7 +214,7 @@ namespace Grand.Framework
                     dataInputSelector = "#" + String.Join(", #", datainputIds);
                 }
                 var onClick = string.Format("checkOverriddenStoreValue(this, '{0}')", dataInputSelector);
-                result.Append("<label class=\"mt-checkbox\">");
+                result.Append("<label class=\"mt-checkbox control control-checkbox\">");
                 var check = helper.CheckBoxFor(expression, new Dictionary<string, object>
                 {
                     { "class", cssClass },
@@ -221,7 +222,7 @@ namespace Grand.Framework
                     { "data-for-input-selector", dataInputSelector },
                 });
                 result.Append(check.ToHtmlString());
-                result.Append("<span></span>");
+                result.Append("<div class='control__indicator'></div>");
                 result.Append("</label>");
             }
             return new HtmlString(result.ToString());

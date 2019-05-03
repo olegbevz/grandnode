@@ -12,15 +12,17 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 
 namespace Grand.Services.Tests.Configuration
 {
     public class ConfigFileSettingService : SettingService
     {
-        public ConfigFileSettingService(MemoryCacheManager cacheManager,
+        public ConfigFileSettingService(IEnumerable<ICacheManager> cacheManager,
             IEventPublisher eventPublisher,
-            IRepository<Setting> settingRepository) :
-            base(cacheManager, eventPublisher, settingRepository)
+            IRepository<Setting> settingRepository,
+            IServiceProvider serviceProvider) :
+            base(cacheManager, eventPublisher, settingRepository, serviceProvider)
         {
 
         }
@@ -54,12 +56,12 @@ namespace Grand.Services.Tests.Configuration
             return defaultValue;
         }
 
-        public override void DeleteSetting(Setting setting)
+        public override Task DeleteSetting(Setting setting)
         {
             throw new InvalidOperationException("Deleting settings is not supported");
         }
 
-        public override void SetSetting<T>(string key, T value, string storeId = "", bool clearCache = true)
+        public override Task SetSetting<T>(string key, T value, string storeId = "", bool clearCache = true)
         {
             throw new NotImplementedException();
         }

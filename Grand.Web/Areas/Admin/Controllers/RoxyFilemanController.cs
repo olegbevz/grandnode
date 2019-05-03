@@ -198,7 +198,7 @@ namespace Grand.Web.Areas.Admin.Controllers
             var action = "DIRLIST";
             try
             {
-                if (!_permissionService.Authorize(StandardPermissionProvider.HtmlEditorManagePictures))
+                if (!await _permissionService.Authorize(StandardPermissionProvider.HtmlEditorManagePictures))
                     throw new Exception("You don't have required permission");
 
                 if (!StringValues.IsNullOrEmpty(HttpContext.Request.Query["a"]))
@@ -419,6 +419,9 @@ namespace Grand.Web.Areas.Admin.Controllers
 
             if (fileExtension == ".swf" || fileExtension == ".flv")
                 fileType = "flash";
+
+            if (fileExtension == ".mp4" || fileExtension == ".avi" || fileExtension == ".mov")
+                fileType = "media";
 
             return fileType;
         }

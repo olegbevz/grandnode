@@ -7,17 +7,17 @@
 <antiforgery-token />
 <div class="row">
     <div class="col-md-12">
-        <div class="portlet light form-fit">
-            <div class="portlet-title">
+        <div class="x_panel light form-fit">
+            <div class="x_title">
                 <div class="caption">
                     <i class="fa fa-bar-chart-o"></i>
                     @T("Admin.Customers.Reports")
                 </div>
             </div>
-            <div class="portlet-body form">
+            <div class="x_content form">
                 <div class="form-horizontal">
                     <div class="form-body">
-                        <div class="portlet-body">
+                        <div class="x_content">
                             <div id="customer-reports">
                                 <ul>
                                     <li tab-index="0">
@@ -31,13 +31,13 @@
                                     </li>
                                 </ul>
                                 <div>
-                                   <partial name="Reports.TabBestByOrderTotal" model="Model" />
+                                    <partial name="Reports.TabBestByOrderTotal" model="Model" />
                                 </div>
                                 <div>
-                                   <partial name="Reports.TabBestByNumberOfOrders" model="Model" />
+                                    <partial name="Reports.TabBestByNumberOfOrders" model="Model" />
                                 </div>
                                 <div>
-                                   <partial name="Reports.TabRegisteredCustomers" model="Model" />
+                                    <partial name="Reports.TabRegisteredCustomers" model="Model" />
                                 </div>
                             </div>
                         </div>
@@ -62,9 +62,9 @@
 @{
     //custom tabs
     var eventMessage = new AdminTabStripCreated(this.Html, "customer-reports");
-    eventPublisher.Publish(eventMessage);
+    await eventPublisher.Publish(eventMessage);
     foreach (var eventBlock in eventMessage.BlocksToRender)
     {
-        @eventBlock
+        <kendo-tab-append tab-strip-name="customer-reports" tab-name="@eventBlock.tabname" tab-content="@eventBlock.content" />
     }
 }

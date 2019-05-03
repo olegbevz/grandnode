@@ -7,8 +7,10 @@ using Grand.Services.Security;
 using Grand.Services.Tasks;
 using Grand.Web.Areas.Admin.Models.Tasks;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace Grand.Web.Areas.Admin.Controllers
 {
@@ -19,17 +21,20 @@ namespace Grand.Web.Areas.Admin.Controllers
         private readonly IScheduleTaskService _scheduleTaskService;
         private readonly IDateTimeHelper _dateTimeHelper;
         private readonly ILocalizationService _localizationService;
+        private readonly IServiceProvider _serviceProvider;
         #endregion
 
         #region Constructors
         public ScheduleTaskController(
             IScheduleTaskService scheduleTaskService,
             IDateTimeHelper dateTimeHelper,
-            ILocalizationService localizationService)
+            ILocalizationService localizationService,
+            IServiceProvider serviceProvider)
         {
             this._scheduleTaskService = scheduleTaskService;
             this._dateTimeHelper = dateTimeHelper;
             this._localizationService = localizationService;
+            this._serviceProvider = serviceProvider;
         }
         #endregion
 
@@ -37,8 +42,7 @@ namespace Grand.Web.Areas.Admin.Controllers
         [NonAction]
         protected virtual ScheduleTaskModel PrepareScheduleTaskModel(ScheduleTask task)
         {
-            var model = new ScheduleTaskModel
-            {
+            var model = new ScheduleTaskModel {
                 Id = task.Id,
                 ScheduleTaskName = task.ScheduleTaskName,
                 LeasedByMachineName = task.LeasedByMachineName,
@@ -48,13 +52,7 @@ namespace Grand.Web.Areas.Admin.Controllers
                 LastStartUtc = task.LastStartUtc,
                 LastEndUtc = task.LastNonSuccessEndUtc,
                 LastSuccessUtc = task.LastSuccessUtc,
-                TimeIntervalChoice = (int)task.TimeIntervalChoice,
                 TimeInterval = task.TimeInterval,
-                MinuteOfHour = task.MinuteOfHour,
-                HourOfDay = task.HourOfDay,
-                DayOfWeek = (int)task.DayOfWeek,
-                MonthOptionChoice = (int)task.MonthOptionChoice,
-                DayOfMonth = task.DayOfMonth
             };
             return model;
         }
@@ -66,14 +64,13 @@ namespace Grand.Web.Areas.Admin.Controllers
         public IActionResult List() => View();
 
         [HttpPost]
-        public IActionResult List(DataSourceRequest command)
+        public async Task<IActionResult> List(DataSourceRequest command)
         {
             //get all tasks and then change their type inside PrepareSCheduleTaskModel and return as List<ScheduleTaskModel>
-            var models = _scheduleTaskService.GetAllTasks()
+            var models = (await _scheduleTaskService.GetAllTasks())
                 .Select(PrepareScheduleTaskModel)
                 .ToList();
-            var gridModel = new DataSourceResult
-            {
+            var gridModel = new DataSourceResult {
                 Data = models,
                 Total = models.Count
             };
@@ -81,9 +78,9 @@ namespace Grand.Web.Areas.Admin.Controllers
         }
 
         [HttpGet]
-        public IActionResult EditScheduler(string id)
+        public async Task<IActionResult> EditScheduler(string id)
         {
-            var task = _scheduleTaskService.GetTaskById(id);
+            var task = await _scheduleTaskService.GetTaskById(id);
             var model = new ScheduleTaskModel();
             {
                 model.Id = task.Id;
@@ -95,35 +92,23 @@ namespace Grand.Web.Areas.Admin.Controllers
                 model.LastStartUtc = task.LastStartUtc;
                 model.LastEndUtc = task.LastNonSuccessEndUtc;
                 model.LastSuccessUtc = task.LastSuccessUtc;
-                model.TimeIntervalChoice = (int)task.TimeIntervalChoice;
                 model.TimeInterval = task.TimeInterval;
-                model.MinuteOfHour = task.MinuteOfHour;
-                model.HourOfDay = task.HourOfDay;
-                model.DayOfWeek = (int)task.DayOfWeek;
-                model.MonthOptionChoice = (int)task.MonthOptionChoice;
-                model.DayOfMonth = task.DayOfMonth;
             }
             return View(model);
         }
 
         [HttpPost]
-        public IActionResult EditScheduler(ScheduleTaskModel model)
+        public async Task<IActionResult> EditScheduler(ScheduleTaskModel model)
         {
-            var scheduleTask = _scheduleTaskService.GetTaskById(model.Id);
+            var scheduleTask = await _scheduleTaskService.GetTaskById(model.Id);
             if (ModelState.IsValid)
             {
                 scheduleTask.Enabled = model.Enabled;
                 scheduleTask.LeasedByMachineName = model.LeasedByMachineName;
                 scheduleTask.StopOnError = model.StopOnError;
-                scheduleTask.TimeIntervalChoice = (TimeIntervalChoice)model.TimeIntervalChoice;
                 scheduleTask.TimeInterval = model.TimeInterval;
-                scheduleTask.MinuteOfHour = model.MinuteOfHour;
-                scheduleTask.HourOfDay = model.HourOfDay;
-                scheduleTask.DayOfWeek = (DayOfWeek)model.DayOfWeek;
-                scheduleTask.MonthOptionChoice = (MonthOptionChoice)model.MonthOptionChoice;
-                scheduleTask.DayOfMonth = model.DayOfMonth;
-                _scheduleTaskService.UpdateTask(scheduleTask);
-                return EditScheduler(model.Id);
+                await _scheduleTaskService.UpdateTask(scheduleTask);
+                return await EditScheduler(model.Id);
             }
             model.ScheduleTaskName = scheduleTask.ScheduleTaskName;
             model.Type = scheduleTask.Type;
@@ -131,14 +116,38 @@ namespace Grand.Web.Areas.Admin.Controllers
             return View(model);
         }
 
-        public IActionResult RunNow(string id)
+        public async Task<IActionResult> RunNow(string id)
         {
             try
             {
-                var scheduleTask = _scheduleTaskService.GetTaskById(id);
+                var scheduleTask = await _scheduleTaskService.GetTaskById(id);
                 if (scheduleTask == null) throw new Exception("Schedule task cannot be loaded");
-                RegistryGrandNode.RunTaskNow(scheduleTask);
-                SuccessNotification(_localizationService.GetResource("Admin.System.ScheduleTasks.RunNow.Done"));
+                var typeofTask = Type.GetType(scheduleTask.Type);
+                var task = _serviceProvider.GetServices<IScheduleTask>().FirstOrDefault(x => x.GetType() == typeofTask);
+                if (task != null)
+                {
+                    scheduleTask.LastStartUtc = DateTime.UtcNow;
+                    try
+                    {
+                        await task.Execute();
+                        scheduleTask.LastSuccessUtc = DateTime.UtcNow;
+                        scheduleTask.LastNonSuccessEndUtc = null;
+                        SuccessNotification(_localizationService.GetResource("Admin.System.ScheduleTasks.RunNow.Done"));
+                    }
+                    catch (Exception exc)
+                    {
+                        scheduleTask.LastNonSuccessEndUtc = DateTime.UtcNow;
+                        SuccessNotification(_localizationService.GetResource("Admin.System.ScheduleTasks.RunNow.Done"));
+
+                        ErrorNotification($"Error while running the {scheduleTask.ScheduleTaskName} schedule task {exc.Message}");
+                    }
+                    await _scheduleTaskService.UpdateTask(scheduleTask);
+                }
+                else
+                {
+
+                    ErrorNotification($"Task {typeofTask.Name} has not been registered");
+                }
             }
             catch (Exception exc)
             {

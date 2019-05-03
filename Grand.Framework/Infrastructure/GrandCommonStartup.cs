@@ -68,7 +68,8 @@ namespace Grand.Framework.Infrastructure
         /// <param name="application">Builder for configuring an application's request pipeline</param>
         public void Configure(IApplicationBuilder application)
         {
-            var grandConfig = EngineContext.Current.Resolve<GrandConfig>();
+            var serviceProvider = application.ApplicationServices;
+            var grandConfig = serviceProvider.GetRequiredService<GrandConfig>();
 
             //default security headers
             if (grandConfig.UseDefaultSecurityHeaders)
@@ -115,9 +116,7 @@ namespace Grand.Framework.Infrastructure
                 application.UsePoweredBy();
 
             //use request localization
-            if (!grandConfig.UseRequestLocalization)
-                application.UseRequestLocalization();
-            else
+            if (grandConfig.UseRequestLocalization)
             {
                 var supportedCultures = new List<CultureInfo>();
                 foreach (var culture in grandConfig.SupportedCultures)
@@ -131,6 +130,10 @@ namespace Grand.Framework.Infrastructure
                     SupportedUICultures = supportedCultures
                 });
             }
+            else
+                //use default request localization
+                application.UseRequestLocalization();
+
         }
 
         /// <summary>

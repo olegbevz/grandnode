@@ -15,10 +15,10 @@ namespace Grand.Web.ViewComponents
             this._commonViewModelService = commonViewModelService;
         }
 
-        public async Task<IViewComponentResult> InvokeAsync()
+        public IViewComponentResult Invoke()
         {
-            var model = await Task.Run(() => _commonViewModelService.PrepareFavicon());
-            if (String.IsNullOrEmpty(model.FaviconUrl))
+            var model = _commonViewModelService.PrepareFavicon();
+            if (string.IsNullOrEmpty(model.FaviconUrl))
                 return Content("");
 
             return View(model);

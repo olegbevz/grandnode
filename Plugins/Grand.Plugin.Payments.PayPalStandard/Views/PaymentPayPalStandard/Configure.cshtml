@@ -44,7 +44,7 @@
 
                 <br />
                 <br />
-                <b>Two ways to be able to receive IPN messages (optional, new Dictionary<string, object> { { "class", "control-label" } }, false)</b>
+                <b>Two ways to be able to receive IPN messages (optional, new Dictionary&lt;string, object&gt; { { "class", "control-label" } }, false)</b>
                 <br />
                 <br />
                 <b>The first way is to check 'Enable IPN' below.</b> It will include in the request the url of you IPN handler
@@ -71,9 +71,9 @@
                     <admin-label asp-for="UseSandbox" class="control-label" />
                 </div>
                 <div class="col-md-9 col-sm-9">
-                    <label class="mt-checkbox mt-checkbox-outline">
+                    <label class="mt-checkbox mt-checkbox-outline control control-checkbox">
                         <admin-input asp-for="UseSandbox" />
-                        <span></span>
+                         <div class="control__indicator"></div>
                     </label>
                     <span asp-validation-for="UseSandbox"></span>
                 </div>
@@ -104,9 +104,9 @@
                     <admin-label asp-for="PdtValidateOrderTotal" class="control-label" />
                 </div>
                 <div class="col-md-9 col-sm-9">
-                    <label class="mt-checkbox mt-checkbox-outline">
+                    <label class="mt-checkbox mt-checkbox-outline control control-checkbox">
                         <admin-input asp-for="PdtValidateOrderTotal" />
-                        <span></span>
+                         <div class="control__indicator"></div>
                     </label>
                     <span asp-validation-for="PdtValidateOrderTotal"></span>
                 </div>
@@ -127,9 +127,9 @@
                     <admin-label asp-for="AdditionalFeePercentage" class="control-label" />
                 </div>
                 <div class="col-md-9 col-sm-9">
-                    <label class="mt-checkbox mt-checkbox-outline">
+                    <label class="mt-checkbox mt-checkbox-outline control control-checkbox">
                         <admin-input asp-for="AdditionalFeePercentage" />
-                        <span></span>
+                         <div class="control__indicator"></div>
                     </label>
                     <span asp-validation-for="AdditionalFeePercentage"></span>
                 </div>
@@ -140,9 +140,9 @@
                     <admin-label asp-for="PassProductNamesAndTotals" class="control-label" />
                 </div>
                 <div class="col-md-9 col-sm-9">
-                    <label class="mt-checkbox mt-checkbox-outline">
+                    <label class="mt-checkbox mt-checkbox-outline control control-checkbox">
                         <admin-input asp-for="PassProductNamesAndTotals" />
-                        <span></span>
+                         <div class="control__indicator"></div>
                     </label>
                     <span asp-validation-for="PassProductNamesAndTotals"></span>
                 </div>

@@ -4,9 +4,11 @@ using Grand.Core.Domain.Stores;
 using Grand.Services.Events;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using MongoDB.Driver.Linq;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace Grand.Services.Stores
 {
@@ -41,6 +43,8 @@ namespace Grand.Services.Stores
         private readonly IEventPublisher _eventPublisher;
         private readonly ICacheManager _cacheManager;
 
+        private List<Store> _allStores;
+
         #endregion
 
         #region Ctor
@@ -68,35 +72,39 @@ namespace Grand.Services.Stores
         /// Deletes a store
         /// </summary>
         /// <param name="store">Store</param>
-        public virtual void DeleteStore(Store store)
+        public virtual async Task DeleteStore(Store store)
         {
             if (store == null)
                 throw new ArgumentNullException("store");
 
-            var allStores = GetAllStores();
+            var allStores = await GetAllStores();
             if (allStores.Count == 1)
                 throw new Exception("You cannot delete the only configured store");
 
-            _storeRepository.Delete(store);
+            await _storeRepository.DeleteAsync(store);
 
             //clear cache
             _cacheManager.Clear();
 
             //event notification
-            _eventPublisher.EntityDeleted(store);
+            await _eventPublisher.EntityDeleted(store);
         }
 
         /// <summary>
         /// Gets all stores
         /// </summary>
         /// <returns>Stores</returns>
-        public virtual IList<Store> GetAllStores()
+        public virtual async Task<IList<Store>> GetAllStores()
         {
-            string key = STORES_ALL_KEY;
-            return _cacheManager.Get(key, () =>
+            if (_allStores == null)
             {
-                return _storeRepository.Collection.Find(new BsonDocument()).SortBy(x => x.DisplayOrder).ToList();
-            });
+                string key = STORES_ALL_KEY;
+                _allStores = await _cacheManager.Get(key, () =>
+                {
+                    return _storeRepository.Collection.Find(new BsonDocument()).SortBy(x => x.DisplayOrder).ToListAsync();
+                });
+            }
+            return _allStores;
         }
 
         /// <summary>
@@ -104,46 +112,46 @@ namespace Grand.Services.Stores
         /// </summary>
         /// <param name="storeId">Store identifier</param>
         /// <returns>Store</returns>
-        public virtual Store GetStoreById(string storeId)
+        public virtual Task<Store> GetStoreById(string storeId)
         {
             string key = string.Format(STORES_BY_ID_KEY, storeId);
-            return _cacheManager.Get(key, () => _storeRepository.GetById(storeId));
+            return _cacheManager.Get(key, () => _storeRepository.GetByIdAsync(storeId));
         }
 
         /// <summary>
         /// Inserts a store
         /// </summary>
         /// <param name="store">Store</param>
-        public virtual void InsertStore(Store store)
+        public virtual async Task InsertStore(Store store)
         {
             if (store == null)
                 throw new ArgumentNullException("store");
 
-            _storeRepository.Insert(store);
+            await _storeRepository.InsertAsync(store);
 
             //clear cache
             _cacheManager.Clear();
 
             //event notification
-            _eventPublisher.EntityInserted(store);
+            await _eventPublisher.EntityInserted(store);
         }
 
         /// <summary>
         /// Updates the store
         /// </summary>
         /// <param name="store">Store</param>
-        public virtual void UpdateStore(Store store)
+        public virtual async Task UpdateStore(Store store)
         {
             if (store == null)
                 throw new ArgumentNullException("store");
 
-            _storeRepository.Update(store);
+            await _storeRepository.UpdateAsync(store);
 
             //clear cache
             _cacheManager.Clear();
 
             //event notification
-            _eventPublisher.EntityUpdated(store);
+            await _eventPublisher.EntityUpdated(store);
         }
 
         /// <summary>
@@ -151,13 +159,12 @@ namespace Grand.Services.Stores
         /// </summary>
         /// <param name="discountId">Discount id mapping identifier</param>
         /// <returns>store mapping</returns>
-        public virtual IList<Store> GetAllStoresByDiscount(string discountId)
+        public virtual async Task<IList<Store>> GetAllStoresByDiscount(string discountId)
         {
             var query = from c in _storeRepository.Table
                         where c.AppliedDiscounts.Any(x => x == discountId)
                         select c;
-            var stores = query.ToList();
-            return stores;
+            return await query.ToListAsync();
         }
         #endregion
     }

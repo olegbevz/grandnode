@@ -13,13 +13,11 @@
         <div id="@string.Format("contact_attribute_label_{0}", attribute.Id)" class="col-12 px-0">
             <span class="col-form-label text-prompt">
                 @textPrompt
-                @if (attribute.IsRequired)
-                {
-                    <span class="required">
-                        <text>*</text>
-                    </span>
-                }
             </span>
+            @if (attribute.IsRequired)
+            {
+                <span class="required">*</span>
+            }
             
             @switch (attribute.AttributeControlType)
             {
@@ -108,7 +106,7 @@
                         Download download = null;
                         if (!String.IsNullOrEmpty(attribute.DefaultValue))
                         {
-                            download = downloadService.GetDownloadByGuid(new Guid(attribute.DefaultValue));
+                            download = await downloadService.GetDownloadByGuid(new Guid(attribute.DefaultValue));
                         }
 
                         //register CSS and JS

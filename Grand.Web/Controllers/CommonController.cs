@@ -7,7 +7,6 @@ using Grand.Core.Domain.Localization;
 using Grand.Core.Domain.Media;
 using Grand.Core.Domain.Messages;
 using Grand.Core.Domain.Vendors;
-using Grand.Core.Infrastructure;
 using Grand.Framework.Localization;
 using Grand.Framework.Mvc.Filters;
 using Grand.Framework.Security;
@@ -32,6 +31,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 
 namespace Grand.Web.Controllers
 {
@@ -105,13 +105,13 @@ namespace Grand.Web.Controllers
         [CheckAccessClosedStore(true)]
         //available even when navigation is not allowed
         [CheckAccessPublicStore(true)]
-        public virtual IActionResult SetLanguage(
+        public virtual async Task<IActionResult> SetLanguage(
             [FromServices] ILanguageService languageService,
             [FromServices] LocalizationSettings localizationSettings,
             string langid, string returnUrl = "")
         {
 
-            var language = languageService.GetLanguageById(langid);
+            var language = await languageService.GetLanguageById(langid);
             if (!language?.Published ?? false)
                 language = _workContext.WorkingLanguage;
 
@@ -127,14 +127,14 @@ namespace Grand.Web.Controllers
             if (localizationSettings.SeoFriendlyUrlsForLanguagesEnabled)
             {
                 //remove current language code if it's already localized URL
-                if (returnUrl.IsLocalizedUrl(this.Request.PathBase, true, out Language _))
+                if (await returnUrl.IsLocalizedUrlAsync(languageService, this.Request.PathBase, true))
                     returnUrl = returnUrl.RemoveLanguageSeoCodeFromUrl(this.Request.PathBase, true);
 
                 //and add code of passed language
                 returnUrl = returnUrl.AddLanguageSeoCodeToUrl(this.Request.PathBase, true, language);
             }
 
-            _workContext.WorkingLanguage = language;
+            await _workContext.SetWorkingLanguage(language);
 
             return Redirect(returnUrl);
         }
@@ -173,9 +173,9 @@ namespace Grand.Web.Controllers
 
         //available even when navigation is not allowed
         [CheckAccessPublicStore(true)]
-        public virtual IActionResult SetCurrency(string customerCurrency, string returnUrl = "")
+        public virtual async Task<IActionResult> SetCurrency(string customerCurrency, string returnUrl = "")
         {
-            _commonViewModelService.SetCurrency(customerCurrency);
+            await _commonViewModelService.SetCurrency(customerCurrency);
 
             //home page
             if (String.IsNullOrEmpty(returnUrl))
@@ -190,16 +190,16 @@ namespace Grand.Web.Controllers
 
         //available even when navigation is not allowed
         [CheckAccessPublicStore(true)]
-        public virtual IActionResult SetStore(
+        public virtual async Task<IActionResult> SetStore(
             [FromServices] IStoreService storeService,
             string store, string returnUrl = "")
         {
             var currentstoreid = _storeContext.CurrentStore.Id;
             if (currentstoreid != store)
-                _commonViewModelService.SetStore(store);
+                await _commonViewModelService.SetStore(store);
 
-            var prevStore = storeService.GetStoreById(currentstoreid);
-            var currStore = storeService.GetStoreById(store);
+            var prevStore = await storeService.GetStoreById(currentstoreid);
+            var currStore = await storeService.GetStoreById(store);
 
             if (prevStore != null && currStore != null)
             {
@@ -222,9 +222,9 @@ namespace Grand.Web.Controllers
 
         //available even when navigation is not allowed
         [CheckAccessPublicStore(true)]
-        public virtual IActionResult SetTaxType(int customerTaxType, string returnUrl = "")
+        public virtual async Task<IActionResult> SetTaxType(int customerTaxType, string returnUrl = "")
         {
-            _commonViewModelService.SetTaxType(customerTaxType);
+            await _commonViewModelService.SetTaxType(customerTaxType);
 
             //home page
             if (String.IsNullOrEmpty(returnUrl))
@@ -240,9 +240,9 @@ namespace Grand.Web.Controllers
         //contact us page
         //available even when a store is closed
         [CheckAccessClosedStore(true)]
-        public virtual IActionResult ContactUs()
+        public virtual async Task<IActionResult> ContactUs()
         {
-            var model = _commonViewModelService.PrepareContactUs();
+            var model = await _commonViewModelService.PrepareContactUs();
             return View(model);
         }
 
@@ -251,7 +251,7 @@ namespace Grand.Web.Controllers
         [ValidateCaptcha]
         //available even when a store is closed
         [CheckAccessClosedStore(true)]
-        public virtual IActionResult ContactUsSend(ContactUsModel model, IFormCollection form, bool captchaValid,
+        public virtual async Task<IActionResult> ContactUsSend(ContactUsModel model, IFormCollection form, bool captchaValid,
             [FromServices] IContactAttributeFormatter contactAttributeFormatter)
         {
             //validate CAPTCHA
@@ -261,8 +261,8 @@ namespace Grand.Web.Controllers
             }
 
             //parse contact attributes
-            var attributeXml = _commonViewModelService.ParseContactAttributes(form);
-            var contactAttributeWarnings = _commonViewModelService.GetContactAttributesWarnings(attributeXml);
+            var attributeXml = await _commonViewModelService.ParseContactAttributes(form);
+            var contactAttributeWarnings = await _commonViewModelService.GetContactAttributesWarnings(attributeXml);
             if (contactAttributeWarnings.Any())
             {
                 foreach (var item in contactAttributeWarnings)
@@ -274,41 +274,41 @@ namespace Grand.Web.Controllers
             if (ModelState.IsValid)
             {
                 model.ContactAttributeXml = attributeXml;
-                model.ContactAttributeInfo = contactAttributeFormatter.FormatAttributes(attributeXml, _workContext.CurrentCustomer);
-                model = _commonViewModelService.SendContactUs(model);
+                model.ContactAttributeInfo = await contactAttributeFormatter.FormatAttributes(attributeXml, _workContext.CurrentCustomer);
+                model = await _commonViewModelService.SendContactUs(model);
                 //activity log
-                _customerActivityService.InsertActivity("PublicStore.ContactUs", "", _localizationService.GetResource("ActivityLog.PublicStore.ContactUs"));
+                await _customerActivityService.InsertActivity("PublicStore.ContactUs", "", _localizationService.GetResource("ActivityLog.PublicStore.ContactUs"));
                 return View(model);
             }
 
             model.DisplayCaptcha = _captchaSettings.Enabled && _captchaSettings.ShowOnContactUsPage;
-            model.ContactAttributes = _commonViewModelService.PrepareContactAttributeModel(attributeXml);
+            model.ContactAttributes = await _commonViewModelService.PrepareContactAttributeModel(attributeXml);
 
             return View(model);
         }
         //contact vendor page
-        public virtual IActionResult ContactVendor(string vendorId)
+        public virtual async Task<IActionResult> ContactVendor(string vendorId, [FromServices] IVendorService vendorService)
         {
             if (!_vendorSettings.AllowCustomersToContactVendors)
                 return RedirectToRoute("HomePage");
 
-            var vendor = EngineContext.Current.Resolve<IVendorService>().GetVendorById(vendorId);
+            var vendor = await vendorService.GetVendorById(vendorId);
             if (vendor == null || !vendor.Active || vendor.Deleted)
                 return RedirectToRoute("HomePage");
 
-            var model = _commonViewModelService.PrepareContactVendor(vendor);
+            var model = await _commonViewModelService.PrepareContactVendor(vendor);
 
             return View(model);
         }
         [HttpPost, ActionName("ContactVendor")]
         [PublicAntiForgery]
         [ValidateCaptcha]
-        public virtual IActionResult ContactVendorSend(ContactVendorModel model, bool captchaValid)
+        public virtual async Task<IActionResult> ContactVendorSend(ContactVendorModel model, bool captchaValid, [FromServices] IVendorService vendorService)
         {
             if (!_vendorSettings.AllowCustomersToContactVendors)
                 return RedirectToRoute("HomePage");
 
-            var vendor = EngineContext.Current.Resolve<IVendorService>().GetVendorById(model.VendorId);
+            var vendor = await vendorService.GetVendorById(model.VendorId);
             if (vendor == null || !vendor.Active || vendor.Deleted)
                 return RedirectToRoute("HomePage");
 
@@ -318,11 +318,11 @@ namespace Grand.Web.Controllers
                 ModelState.AddModelError("", _captchaSettings.GetWrongCaptchaMessage(_localizationService));
             }
 
-            model.VendorName = vendor.GetLocalized(x => x.Name);
+            model.VendorName = vendor.GetLocalized(x => x.Name, _workContext.WorkingLanguage.Id);
 
             if (ModelState.IsValid)
             {
-                model = _commonViewModelService.SendContactVendor(model, vendor);
+                model = await _commonViewModelService.SendContactVendor(model, vendor);
                 return View(model);
             }
 
@@ -331,29 +331,30 @@ namespace Grand.Web.Controllers
         }
 
         //sitemap page
-        public virtual IActionResult Sitemap()
+        public virtual async Task<IActionResult> Sitemap()
         {
             if (!_commonSettings.SitemapEnabled)
                 return RedirectToRoute("HomePage");
 
-            var model = _commonViewModelService.PrepareSitemap();
+            var model = await _commonViewModelService.PrepareSitemap();
             return View(model);
         }
 
         //available even when a store is closed
         [CheckAccessClosedStore(true)]
-        public virtual IActionResult SitemapXml(int? id)
+        public virtual async Task<IActionResult> SitemapXml(int? id)
         {
             if (!_commonSettings.SitemapEnabled)
                 return RedirectToRoute("HomePage");
-            var siteMap = _commonViewModelService.SitemapXml(id, this.Url);
+            var siteMap = await _commonViewModelService.SitemapXml(id, this.Url);
 
             return Content(siteMap, "text/xml");
         }
 
-        public virtual IActionResult SetStoreTheme(string themeName, string returnUrl = "")
+        public virtual IActionResult SetStoreTheme(
+            [FromServices] IThemeContext themeContext, string themeName, string returnUrl = "")
         {
-            EngineContext.Current.Resolve<IThemeContext>().WorkingThemeName = themeName;
+            themeContext.WorkingThemeName = themeName;
 
             //home page
             if (String.IsNullOrEmpty(returnUrl))
@@ -372,14 +373,15 @@ namespace Grand.Web.Controllers
         [CheckAccessClosedStore(true)]
         //available even when navigation is not allowed
         [CheckAccessPublicStore(true)]
-        public virtual IActionResult EuCookieLawAccept([FromServices] StoreInformationSettings storeInformationSettings)
+        public virtual async Task<IActionResult> EuCookieLawAccept([FromServices] StoreInformationSettings storeInformationSettings,
+            [FromServices] IGenericAttributeService genericAttributeService)
         {
             if (!storeInformationSettings.DisplayEuCookieLawWarning)
                 //disabled
                 return Json(new { stored = false });
 
             //save setting
-            EngineContext.Current.Resolve<IGenericAttributeService>().SaveAttribute(_workContext.CurrentCustomer, SystemCustomerAttributeNames.EuCookieLawAccepted, true, _storeContext.CurrentStore.Id);
+            await genericAttributeService.SaveAttribute(_workContext.CurrentCustomer, SystemCustomerAttributeNames.EuCookieLawAccepted, true, _storeContext.CurrentStore.Id);
             return Json(new { stored = true });
         }
 
@@ -388,9 +390,9 @@ namespace Grand.Web.Controllers
         [CheckAccessClosedStore(true)]
         //available even when navigation is not allowed
         [CheckAccessPublicStore(true)]
-        public virtual IActionResult RobotsTextFile()
+        public virtual async Task<IActionResult> RobotsTextFile()
         {
-            var sb = _commonViewModelService.PrepareRobotsTextFile();
+            var sb = await _commonViewModelService.PrepareRobotsTextFile();
             return Content(sb, "text/plain");
         }
 
@@ -406,17 +408,17 @@ namespace Grand.Web.Controllers
         public virtual IActionResult StoreClosed() => View();
 
         [HttpPost]
-        public virtual IActionResult ContactAttributeChange(IFormCollection form,
+        public virtual async Task<IActionResult> ContactAttributeChange(IFormCollection form,
             [FromServices] IContactAttributeParser contactAttributeParser)
         {
-            var attributeXml = _commonViewModelService.ParseContactAttributes(form);
+            var attributeXml = await _commonViewModelService.ParseContactAttributes(form);
 
             var enabledAttributeIds = new List<string>();
             var disabledAttributeIds = new List<string>();
-            var attributes = _contactAttributeService.GetAllContactAttributes(_storeContext.CurrentStore.Id);
+            var attributes = await _contactAttributeService.GetAllContactAttributes(_storeContext.CurrentStore.Id);
             foreach (var attribute in attributes)
             {
-                var conditionMet = contactAttributeParser.IsConditionMet(attribute, attributeXml);
+                var conditionMet = await contactAttributeParser.IsConditionMet(attribute, attributeXml);
                 if (conditionMet.HasValue)
                 {
                     if (conditionMet.Value)
@@ -434,9 +436,9 @@ namespace Grand.Web.Controllers
         }
 
         [HttpPost]
-        public virtual IActionResult UploadFileContactAttribute(string attributeId)
+        public virtual async Task<IActionResult> UploadFileContactAttribute(string attributeId, [FromServices] IDownloadService downloadService)
         {
-            var attribute = _contactAttributeService.GetContactAttributeById(attributeId);
+            var attribute = await _contactAttributeService.GetContactAttributeById(attributeId);
             if (attribute == null || attribute.AttributeControlType != AttributeControlType.FileUpload)
             {
                 return Json(new
@@ -489,8 +491,7 @@ namespace Grand.Web.Controllers
                 }
             }
 
-            var download = new Download
-            {
+            var download = new Download {
                 DownloadGuid = Guid.NewGuid(),
                 UseDownloadUrl = false,
                 DownloadUrl = "",
@@ -502,7 +503,7 @@ namespace Grand.Web.Controllers
                 IsNew = true
             };
 
-            EngineContext.Current.Resolve<IDownloadService>().InsertDownload(download);
+            await downloadService.InsertDownload(download);
 
             //when returning JSON the mime-type must be set to text/plain
             //otherwise some browsers will pop-up a "Save As" dialog.
@@ -517,15 +518,15 @@ namespace Grand.Web.Controllers
 
         //Get banner for customer
         [HttpGet]
-        public virtual IActionResult GetActivePopup()
+        public virtual async Task<IActionResult> GetActivePopup()
         {
-            var result = _popupService.GetActivePopupByCustomerId(_workContext.CurrentCustomer.Id);
+            var result = await _popupService.GetActivePopupByCustomerId(_workContext.CurrentCustomer.Id);
             if (result != null)
             {
                 return Json
-                    (
-                        new { Id = result.Id, Body = result.Body, PopupTypeId = result.PopupTypeId }
-                    );
+                (
+                    new { Id = result.Id, Body = result.Body, PopupTypeId = result.PopupTypeId }
+                );
             }
             else
                 return Json
@@ -535,17 +536,17 @@ namespace Grand.Web.Controllers
         }
 
         [HttpPost]
-        public virtual IActionResult RemovePopup(string Id)
+        public virtual async Task<IActionResult> RemovePopup(string Id)
         {
-            _popupService.MovepopupToArchive(Id, _workContext.CurrentCustomer.Id);
+            await _popupService.MovepopupToArchive(Id, _workContext.CurrentCustomer.Id);
             return Json("");
         }
 
 
         [HttpGet]
-        public virtual IActionResult CustomerActionEventUrl(string curl, string purl)
+        public virtual async Task<IActionResult> CustomerActionEventUrl(string curl, string purl)
         {
-            _customerActionEventService.Url(_workContext.CurrentCustomer, curl, purl);
+            await _customerActionEventService.Url(_workContext.CurrentCustomer, curl, purl);
             return Json
                 (
                     new { empty = "" }
@@ -553,18 +554,17 @@ namespace Grand.Web.Controllers
         }
 
         [HttpPost, ActionName("PopupInteractiveForm")]
-        public virtual IActionResult PopupInteractiveForm(IFormCollection formCollection,
-           [FromServices] IInteractiveFormService interactiveFormService)
+        public virtual async Task<IActionResult> PopupInteractiveForm(IFormCollection formCollection,
+           [FromServices] IInteractiveFormService interactiveFormService, [FromServices] IQueuedEmailService queuedEmailService,
+           [FromServices] IEmailAccountService emailAccountService)
         {
 
             var formid = formCollection["Id"];
-            var form = interactiveFormService.GetFormById(formid);
+            var form = await interactiveFormService.GetFormById(formid);
             if (form == null)
                 return Content("");
             string enquiry = "";
 
-            var queuedEmailService = EngineContext.Current.Resolve<IQueuedEmailService>();
-            var emailAccountService = EngineContext.Current.Resolve<IEmailAccountService>();
             foreach (var item in form.FormAttributes)
             {
                 enquiry += string.Format("{0}: {1} <br />", item.Name, formCollection[item.SystemName]);
@@ -576,14 +576,14 @@ namespace Grand.Web.Controllers
                     Match match = regex.Match(valuesStr);
                     if (!match.Success)
                     {
-                        ModelState.AddModelError("", string.Format(_localizationService.GetResource("PopupInteractiveForm.Fields.Regex"), item.GetLocalized(a => a.Name)));
+                        ModelState.AddModelError("", string.Format(_localizationService.GetResource("PopupInteractiveForm.Fields.Regex"), item.GetLocalized(a => a.Name, _workContext.WorkingLanguage.Id)));
                     }
                 }
                 if (item.IsRequired)
                 {
                     var valuesStr = formCollection[item.SystemName];
                     if (string.IsNullOrEmpty(valuesStr))
-                        ModelState.AddModelError("", string.Format(_localizationService.GetResource("PopupInteractiveForm.Fields.IsRequired"), item.GetLocalized(a => a.Name)));
+                        ModelState.AddModelError("", string.Format(_localizationService.GetResource("PopupInteractiveForm.Fields.IsRequired"), item.GetLocalized(a => a.Name, _workContext.WorkingLanguage.Id)));
                 }
                 if (item.ValidationMinLength.HasValue)
                 {
@@ -594,7 +594,7 @@ namespace Grand.Web.Controllers
                         int enteredTextLength = String.IsNullOrEmpty(valuesStr) ? 0 : valuesStr.Length;
                         if (item.ValidationMinLength.Value > enteredTextLength)
                         {
-                            ModelState.AddModelError("", string.Format(_localizationService.GetResource("PopupInteractiveForm.Fields.TextboxMinimumLength"), item.GetLocalized(a => a.Name), item.ValidationMinLength.Value));
+                            ModelState.AddModelError("", string.Format(_localizationService.GetResource("PopupInteractiveForm.Fields.TextboxMinimumLength"), item.GetLocalized(a => a.Name, _workContext.WorkingLanguage.Id), item.ValidationMinLength.Value));
                         }
                     }
                 }
@@ -607,7 +607,7 @@ namespace Grand.Web.Controllers
                         int enteredTextLength = String.IsNullOrEmpty(valuesStr) ? 0 : valuesStr.Length;
                         if (item.ValidationMaxLength.Value < enteredTextLength)
                         {
-                            ModelState.AddModelError("", string.Format(_localizationService.GetResource("PopupInteractiveForm.Fields.TextboxMaximumLength"), item.GetLocalized(a => a.Name), item.ValidationMaxLength.Value));
+                            ModelState.AddModelError("", string.Format(_localizationService.GetResource("PopupInteractiveForm.Fields.TextboxMaximumLength"), item.GetLocalized(a => a.Name, _workContext.WorkingLanguage.Id), item.ValidationMaxLength.Value));
                         }
                     }
                 }
@@ -616,9 +616,9 @@ namespace Grand.Web.Controllers
 
             if (ModelState.Keys.Count() == 0)
             {
-                var emailAccount = emailAccountService.GetEmailAccountById(form.EmailAccountId);
+                var emailAccount = await emailAccountService.GetEmailAccountById(form.EmailAccountId);
                 if (emailAccount == null)
-                    emailAccount = emailAccountService.GetAllEmailAccounts().FirstOrDefault();
+                    emailAccount = (await emailAccountService.GetAllEmailAccounts()).FirstOrDefault();
                 if (emailAccount == null)
                     throw new Exception("No email account could be loaded");
 
@@ -628,8 +628,7 @@ namespace Grand.Web.Controllers
                 from = emailAccount.Email;
                 fromName = emailAccount.DisplayName;
 
-                queuedEmailService.InsertQueuedEmail(new QueuedEmail
-                {
+                await queuedEmailService.InsertQueuedEmail(new QueuedEmail {
                     From = from,
                     FromName = fromName,
                     To = emailAccount.Email,
@@ -642,7 +641,7 @@ namespace Grand.Web.Controllers
                 });
 
                 //activity log
-                _customerActivityService.InsertActivity("PublicStore.InteractiveForm", form.Id, string.Format(_localizationService.GetResource("ActivityLog.PublicStore.InteractiveForm"), form.Name));
+                await _customerActivityService.InsertActivity("PublicStore.InteractiveForm", form.Id, string.Format(_localizationService.GetResource("ActivityLog.PublicStore.InteractiveForm"), form.Name));
             }
 
             return Json(new
